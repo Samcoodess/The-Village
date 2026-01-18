@@ -10,6 +10,7 @@ interface UseWebSocketOptions {
   onError?: (error: Event) => void;
   autoReconnect?: boolean;
   reconnectInterval?: number;
+  enabled?: boolean; // Only connect when enabled is true
 }
 
 export function useWebSocket(options: UseWebSocketOptions = {}) {
@@ -20,6 +21,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     onError,
     autoReconnect = true,
     reconnectInterval = 3000,
+    enabled = true, // Default to true for backward compatibility
   } = options;
 
   const [isConnected, setIsConnected] = useState(false);
@@ -106,13 +108,20 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
   }, []);
 
   useEffect(() => {
-    shouldReconnectRef.current = true;
-    connect();
+    // Only connect if enabled is true
+    if (enabled) {
+      shouldReconnectRef.current = true;
+      connect();
+    } else {
+      // Disconnect if enabled becomes false
+      disconnect();
+    }
 
     return () => {
       disconnect();
     };
-  }, [connect, disconnect]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled]); // Only re-run when 'enabled' changes, not when connect/disconnect change
 
   return {
     isConnected,

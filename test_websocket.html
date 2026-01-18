@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Test - The Village</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        #status {
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        #status.connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        #status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        #status.connecting {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+        button.primary {
+            background: #007bff;
+            color: white;
+        }
+        button.primary:hover {
+            background: #0056b3;
+        }
+        button.secondary {
+            background: #6c757d;
+            color: white;
+        }
+        button.secondary:hover {
+            background: #545b62;
+        }
+        button.success {
+            background: #28a745;
+            color: white;
+        }
+        button.success:hover {
+            background: #218838;
+        }
+        #messages {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        .message {
+            margin-bottom: 10px;
+            padding: 8px;
+            border-radius: 4px;
+        }
+        .message.received {
+            background: #e3f2fd;
+        }
+        .message.sent {
+            background: #f1f8e9;
+        }
+        .message.error {
+            background: #ffebee;
+            color: #c62828;
+        }
+        .timestamp {
+            color: #666;
+            font-size: 10px;
+        }
+        .event-type {
+            font-weight: bold;
+            color: #1976d2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔌 WebSocket Connection Test</h1>
+        <div id="status" class="disconnected">Disconnected</div>
+
+        <div class="button-group">
+            <button class="primary" onclick="connect()">Connect</button>
+            <button class="secondary" onclick="disconnect()">Disconnect</button>
+            <button class="success" onclick="testEvents()">Test Events</button>
+            <button class="secondary" onclick="clearMessages()">Clear</button>
+        </div>
+
+        <div id="messages"></div>
+    </div>
+
+    <script>
+        let ws = null;
+        const WS_URL = 'ws://localhost:8000/ws';
+
+        function addMessage(text, type = 'received') {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+
+            const timestamp = new Date().toLocaleTimeString();
+            messageDiv.innerHTML = `
+                <span class="timestamp">${timestamp}</span> - ${text}
+            `;
+
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function updateStatus(status) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = status;
+
+            const statusText = {
+                'connected': '✅ Connected to WebSocket',
+                'disconnected': '❌ Disconnected',
+                'connecting': '🔄 Connecting...'
+            };
+
+            statusDiv.textContent = statusText[status] || status;
+        }
+
+        function connect() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                addMessage('Already connected!', 'error');
+                return;
+            }
+
+            updateStatus('connecting');
+            addMessage('Connecting to ' + WS_URL, 'sent');
+
+            ws = new WebSocket(WS_URL);
+
+            ws.onopen = () => {
+                updateStatus('connected');
+                addMessage('✅ WebSocket connected successfully!', 'received');
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    const eventType = data.type;
+                    const eventData = JSON.stringify(data.data, null, 2);
+
+                    addMessage(
+                        `<strong class="event-type">${eventType}</strong><br><pre>${eventData}</pre>`,
+                        'received'
+                    );
+                } catch (e) {
+                    addMessage('Received: ' + event.data, 'received');
+                }
+            };
+
+            ws.onerror = (error) => {
+                addMessage('❌ WebSocket error: ' + error, 'error');
+            };
+
+            ws.onclose = () => {
+                updateStatus('disconnected');
+                addMessage('WebSocket connection closed', 'error');
+            };
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+                updateStatus('disconnected');
+                addMessage('Disconnected', 'sent');
+            }
+        }
+
+        async function testEvents() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                addMessage('Please connect first!', 'error');
+                return;
+            }
+
+            // Test 1: Start a call
+            addMessage('📞 Starting test call...', 'sent');
+            const startResponse = await fetch('http://localhost:8000/api/call/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ elder_id: 'margaret' })
+            });
+
+            if (startResponse.ok) {
+                const callData = await startResponse.json();
+                const callId = callData.id;
+                addMessage(`✅ Call started with ID: ${callId}`, 'sent');
+
+                // Subscribe to this call
+                ws.send(JSON.stringify({
+                    type: 'subscribe_call',
+                    call_id: callId
+                }));
+                addMessage(`📡 Subscribed to call ${callId}`, 'sent');
+
+                // Wait a bit, then test WebSocket events
+                setTimeout(async () => {
+                    addMessage('🧪 Triggering test WebSocket events...', 'sent');
+                    await fetch(`http://localhost:8000/api/demo/test-websocket/${callId}`, {
+                        method: 'POST'
+                    });
+                }, 1000);
+
+                // Wait more, then end the call
+                setTimeout(async () => {
+                    addMessage('🔚 Ending call...', 'sent');
+                    await fetch(`http://localhost:8000/api/call/${callId}/end`, {
+                        method: 'POST'
+                    });
+                }, 3000);
+            } else {
+                addMessage('❌ Failed to start call', 'error');
+            }
+        }
+
+        function clearMessages() {
+            document.getElementById('messages').innerHTML = '';
+        }
+
+        // Auto-connect on page load
+        window.onload = () => {
+            addMessage('Page loaded. Click "Connect" to establish WebSocket connection.', 'received');
+        };
+    </script>
+</body>
+</html>

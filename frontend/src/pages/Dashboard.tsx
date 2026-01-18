@@ -111,12 +111,21 @@ export default function Dashboard() {
     }
   }, [activeCall, timerRunning]);
 
-  const { connectionStatus } = useWebSocket({
+  const { connectionStatus, send, isConnected } = useWebSocket({
+    enabled: activeCall !== null, // Only connect when there's an active call
     onMessage: handleWebSocketMessage,
-    onOpen: () => console.log('WebSocket connected'),
-    onClose: () => console.log('WebSocket disconnected'),
-    onError: (error) => console.error('WebSocket error:', error),
+    onOpen: () => console.log('✅ WebSocket connected for active call'),
+    onClose: () => console.log('❌ WebSocket disconnected'),
+    onError: (error) => console.error('⚠️  WebSocket error:', error),
   });
+
+  // Subscribe to call events when connection is established
+  useEffect(() => {
+    if (isConnected && activeCall) {
+      console.log(`📡 Subscribing to call ${activeCall.id}`);
+      send({ type: 'subscribe_call', call_id: activeCall.id });
+    }
+  }, [isConnected, activeCall?.id, send]);
 
   // Load config on mount
   useEffect(() => {

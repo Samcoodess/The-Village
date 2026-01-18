@@ -111,3 +111,6 @@ MARGARET = Elder(
         known_concerns=["Tends to isolate when feeling down", "Doesn't drink enough water"]
     )
 )
+
+# Export as both MARGARET and margaret_elder for compatibility
+margaret_elder = MARGARET
