@@ -2,6 +2,8 @@
 import os
 from dotenv import load_dotenv
 
+# Try loading from .env.local first, then .env
+load_dotenv(".env.local")
 load_dotenv()
 
 # Try to import supabase, but gracefully handle if not installed
@@ -14,18 +16,21 @@ except ImportError:
     Client = None
 
 url: str = os.environ.get("SUPABASE_URL")
-key: str = os.environ.get("SUPABASE_SERVICE_KEY")
+# Try service key first (for server-side), fall back to anon key (for client-side)
+key: str = os.environ.get("SUPABASE_SERVICE_KEY") or os.environ.get("SUPABASE_ANON_KEY")
 
 supabase: Client = None
 
 if SUPABASE_AVAILABLE and url and key:
     try:
         supabase = create_client(url, key)
-        print("✅ Supabase client initialized successfully")
+        print(f"✅ Supabase client initialized successfully with URL: {url}")
     except Exception as e:
-        print(f"⚠️  Warning: Failed to initialize Supabase client: {e}")
+        print(f"❌ Failed to initialize Supabase client: {e}")
         supabase = None
 elif SUPABASE_AVAILABLE:
     print("ℹ️  Info: Supabase credentials not found. Running without database.")
+    print(f"   SUPABASE_URL: {'✓' if url else '✗'}")
+    print(f"   SUPABASE_SERVICE_KEY: {'✓' if os.environ.get('SUPABASE_SERVICE_KEY') else '✗'}")
 else:
-    print("ℹ️  Info: Running in demo mode (no database connection)")
+    print("ℹ️  Info: Supabase module not installed. Running in demo mode (no database connection)")
