@@ -167,45 +167,71 @@ async def start_call(request: CallRequest):
                 "url": LIVEKIT_URL
             }
         
-        # Start recording automatically (if configured)
-        # Note: Recording requires LiveKit Egress to be properly configured
-        # For now, we'll skip recording if not configured properly
+        # Start recording automatically (if configured with S3)
         recording_enabled = os.getenv("ENABLE_RECORDING", "false").lower() == "true"
         
+        print(f"🔍 Debug - Recording enabled: {recording_enabled}")
+        
         if recording_enabled:
-            try:
-                os.makedirs("recordings", exist_ok=True)
-                timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
-                recording_filename = f"{room_name}_{timestamp}.mp3"
-                
-                # For LiveKit Egress to work, you need to configure file output in your LiveKit Cloud
-                # Or use S3/GCS/Azure storage. For now, we'll try basic file output
-                egress = await lk_api.egress.start_room_composite_egress(
-                    api.RoomCompositeEgressRequest(
-                        room_name=room_name,
-                        file_outputs=[
-                            api.EncodedFileOutput(
-                                file_type=api.EncodedFileType.MP4,  # MP4 with audio-only
-                                filepath=recording_filename,
-                            )
-                        ],
-                        audio_only=True,
+            # Get S3 configuration from environment
+            s3_endpoint = os.getenv("S3_ENDPOINT")  # Supabase S3 endpoint
+            s3_access_key = os.getenv("S3_ACCESS_KEY")
+            s3_secret = os.getenv("S3_SECRET")
+            s3_bucket = os.getenv("S3_BUCKET")
+            s3_region = os.getenv("S3_REGION", "us-east-1")
+            
+            print(f"🔍 Debug - S3 Config:")
+            print(f"   Endpoint: {s3_endpoint[:50] if s3_endpoint else 'NOT SET'}...")
+            print(f"   Access Key: {'SET' if s3_access_key else 'NOT SET'}")
+            print(f"   Secret: {'SET' if s3_secret else 'NOT SET'}")
+            print(f"   Bucket: {s3_bucket if s3_bucket else 'NOT SET'}")
+            print(f"   Region: {s3_region}")
+            
+            if s3_endpoint and s3_access_key and s3_secret and s3_bucket:
+                try:
+                    timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+                    recording_filename = f"recordings/{room_name}_{timestamp}.mp3"
+                    
+                    # Configure S3 output for LiveKit Egress
+                    egress = await lk_api.egress.start_room_composite_egress(
+                        api.RoomCompositeEgressRequest(
+                            room_name=room_name,
+                            file_outputs=[
+                                api.EncodedFileOutput(
+                                    file_type=api.EncodedFileType.MP3,
+                                    filepath=recording_filename,
+                                    output=api.S3Upload(
+                                        access_key=s3_access_key,
+                                        secret=s3_secret,
+                                        region=s3_region,
+                                        endpoint=s3_endpoint,
+                                        bucket=s3_bucket,
+                                    )
+                                )
+                            ],
+                            audio_only=True,
+                        )
                     )
-                )
-                
+                    
+                    response_data["recording"] = {
+                        "status": "started",
+                        "egress_id": egress.egress_id,
+                        "file": recording_filename,
+                        "bucket": s3_bucket
+                    }
+                    print(f"🎙️  Recording started: {recording_filename} → S3 bucket: {s3_bucket}")
+                    
+                except Exception as recording_error:
+                    print(f"⚠️  Recording failed to start: {recording_error}")
+                    response_data["recording"] = {
+                        "status": "failed",
+                        "error": str(recording_error),
+                        "note": "Check S3 credentials and bucket permissions. Transcript will still be saved."
+                    }
+            else:
                 response_data["recording"] = {
-                    "status": "started",
-                    "egress_id": egress.egress_id,
-                    "file": f"recordings/{recording_filename}"
-                }
-                print(f"🎙️  Recording started: {recording_filename}")
-                
-            except Exception as recording_error:
-                print(f"⚠️  Recording failed to start: {recording_error}")
-                response_data["recording"] = {
-                    "status": "failed",
-                    "error": str(recording_error),
-                    "note": "Recording requires LiveKit Egress configuration. Transcript will still be saved."
+                    "status": "not_configured",
+                    "note": "Recording enabled but S3 credentials missing. Add S3_ENDPOINT, S3_ACCESS_KEY, S3_SECRET, and S3_BUCKET to .env"
                 }
         else:
             response_data["recording"] = {
