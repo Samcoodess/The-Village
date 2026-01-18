@@ -13,7 +13,7 @@ sleep 1
 cd "$(dirname "$0")"
 
 # Activate virtual environment
-source venv/bin/activate
+source backend/venv/bin/activate
 
 # Start the agent
 echo "🚀 Starting agent..."
