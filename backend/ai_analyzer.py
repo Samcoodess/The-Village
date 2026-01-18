@@ -9,11 +9,12 @@ This module uses Google Gemini to analyze call transcripts in real-time and dete
 
 import os
 import json
+import uuid
 from typing import Dict, List, Optional
 from datetime import datetime
 import google.genai as genai
 
-from models import (
+from backend.models import (
     CallSession, TranscriptLine, WellbeingAssessment,
     Concern, ProfileFact, Elder
 )

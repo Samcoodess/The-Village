@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from livekit import agents, rtc
 from livekit.agents import AgentServer, AgentSession, Agent, room_io, llm
 from livekit.plugins import noise_cancellation, silero, google
-from livekit.plugins.turn_detector.multilingual import MultilingualModel
+# from livekit.plugins.turn_detector.multilingual import MultilingualModel  # Disabled - not needed
 import os
 import json
 import asyncio

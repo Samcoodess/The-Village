@@ -1,14 +1,14 @@
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from database import supabase
-from websocket_manager import ws_manager
-from models import (
+from backend.database import supabase
+from backend.websocket_manager import ws_manager
+from backend.models import (
     Elder, CallSession, CallStatus, TranscriptLine, VillageAction,
     Concern, ProfileFact, VillageMember
 )
-from margaret import margaret_elder
-from ai_analyzer import ai_analyzer
+from backend.margaret import margaret_elder
+from backend.ai_analyzer import ai_analyzer
 import requests
 import os
 import uuid

@@ -11,6 +11,9 @@ httpx>=0.24.0
 # Database
 supabase>=2.3.4
 
+# AI/LLM
+google-genai>=0.2.0
+
 # Audio processing and ML
 librosa>=0.10.0
 pydub>=0.25.1
